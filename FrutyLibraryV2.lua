@@ -1,4 +1,3 @@
---// Fruty Library V2 — dark / red accent / cards UI
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
@@ -29,26 +28,6 @@ local T = {
 	Off     = Color3.fromRGB(58, 60, 68),
 	Search  = Color3.fromRGB(23, 24, 29),
 	Blue    = Color3.fromRGB(61, 165, 255),
-}
-
-local Icons = {}
-pcall(function()
-	Icons = HttpService:JSONDecode(game:HttpGetAsync("https://raw.githubusercontent.com/evoincorp/lucideblox/master/src/modules/util/icons.json")).icons
-end)
-
-local function IconUrl(name)
-	if type(name) ~= "string" then return nil end
-	if Icons[name] then return Icons[name] end
-	if name:sub(1, 12) == "rbxassetid://" then return name end
-	return nil
-end
-
-local IconFallback = {
-	["chevron-down"] = "▾",
-	["chevron-right"] = "›",
-	["minus"] = "−",
-	["x"] = "×",
-	["search"] = "⌕",
 }
 
 local function Tween(obj, props, speed)
@@ -86,21 +65,101 @@ local function MakeLabel(text, size, color, bold, props)
 	return l
 end
 
+local IconParts = setmetatable({}, {__mode = "k"})
+
+local function DrawIcon(name, size, color)
+	color = color or T.Muted
+	local holder = Create("Frame", {
+		Size = UDim2.new(0, size, 0, size),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	})
+	local th = math.max(1.6, size / 8)
+	local s = size
+	local parts = {}
+	IconParts[holder] = parts
+
+	local function ring(d, xoff, yoff)
+		local r = Create("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, xoff or 0, 0.5, yoff or 0),
+			Size = UDim2.new(0, d, 0, d),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+		}, {
+			Create("UICorner", {CornerRadius = UDim.new(1, 0)}),
+			Create("UIStroke", {Color = color, Thickness = th}),
+		})
+		r.Parent = holder
+		table.insert(parts, r:FindFirstChildOfClass("UIStroke"))
+		return r
+	end
+
+	local function bar(len, thick, rot, xoff, yoff)
+		local b = Create("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, xoff or 0, 0.5, yoff or 0),
+			Size = UDim2.new(0, len, 0, thick or th),
+			BackgroundColor3 = color,
+			BorderSizePixel = 0,
+			Rotation = rot or 0,
+		}, {Create("UICorner", {CornerRadius = UDim.new(1, 0)})})
+		b.Parent = holder
+		table.insert(parts, b)
+		return b
+	end
+
+	local function dot(d, xoff, yoff)
+		return bar(d, d, 0, xoff, yoff)
+	end
+
+	if name == "crosshair" then
+		ring(s * 0.6)
+		bar(s * 0.22, th, 0, 0, -s * 0.38)
+		bar(s * 0.22, th, 0, 0, s * 0.38)
+		bar(s * 0.22, th, 90, -s * 0.38, 0)
+		bar(s * 0.22, th, 90, s * 0.38, 0)
+		dot(s * 0.14)
+	elseif name == "eye" then
+		ring(s * 0.74)
+		dot(s * 0.3)
+	elseif name == "skull" then
+		ring(s * 0.76)
+		dot(s * 0.17, -s * 0.16, -s * 0.08)
+		dot(s * 0.17, s * 0.16, -s * 0.08)
+		bar(s * 0.26, th, 0, 0, s * 0.2)
+	elseif name == "search" then
+		ring(s * 0.6, -s * 0.09, -s * 0.09)
+		bar(s * 0.4, th, 45, s * 0.2, s * 0.2)
+	elseif name == "chevron-down" then
+		bar(s * 0.5, th, 45, -s * 0.12, -s * 0.06)
+		bar(s * 0.5, th, -45, s * 0.12, -s * 0.06)
+	elseif name == "chevron-right" then
+		bar(s * 0.5, th, -45, -s * 0.06, -s * 0.12)
+		bar(s * 0.5, th, 45, -s * 0.06, s * 0.12)
+	elseif name == "x" then
+		bar(s * 0.64, th, 45)
+		bar(s * 0.64, th, -45)
+	elseif name == "minus" then
+		bar(s * 0.64, th, 0)
+	elseif name == "plus" then
+		bar(s * 0.64, th, 0)
+		bar(s * 0.64, th, 90)
+	else
+		dot(s * 0.3)
+	end
+	return holder
+end
+
 local function MakeIcon(name, size, color)
-	local url = IconUrl(name)
-	if url then
+	if type(name) == "string" and name:sub(1, 12) == "rbxassetid://" then
 		return Create("ImageLabel", {
-			Image = url, ImageColor3 = color or T.Muted,
+			Image = name, ImageColor3 = color or T.Muted,
 			BackgroundTransparency = 1, BorderSizePixel = 0,
 			Size = UDim2.new(0, size, 0, size),
 		})
 	end
-	return Create("TextLabel", {
-		Text = IconFallback[name] or "•", TextColor3 = color or T.Muted,
-		TextSize = size, Font = Enum.Font.GothamBold,
-		BackgroundTransparency = 1, BorderSizePixel = 0,
-		Size = UDim2.new(0, size, 0, size),
-	})
+	return DrawIcon(name, size, color)
 end
 
 local function Track(conn)
@@ -220,7 +279,6 @@ function FrutyLib:MakeWindow(Config)
 		end
 	end)
 
-	--// notification holder
 	FrutyLib.NotifHolder = Create("Frame", {
 		Parent = Fruty,
 		AnchorPoint = Vector2.new(1, 1),
@@ -232,7 +290,6 @@ function FrutyLib:MakeWindow(Config)
 		Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, HorizontalAlignment = Enum.HorizontalAlignment.Right, VerticalAlignment = Enum.VerticalAlignment.Bottom, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8)}),
 	})
 
-	--// main window
 	local FullSize = UDim2.fromOffset(700, 430)
 	local MainWindow = Create("Frame", {
 		Parent = Fruty,
@@ -266,7 +323,24 @@ function FrutyLib:MakeWindow(Config)
 
 	Create("Frame", {Parent = TopBar, Position = UDim2.new(0, 0, 1, -1), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = T.Divider, BorderSizePixel = 0}).Parent = TopBar
 
-	local function TopBtn(symbol, xPos)
+	local function TweenIco(ico, color)
+		local parts = IconParts[ico]
+		if parts then
+			for _, obj in ipairs(parts) do
+				if obj:IsA("UIStroke") then
+					Tween(obj, {Color = color}, 0.18)
+				else
+					Tween(obj, {BackgroundColor3 = color}, 0.18)
+				end
+			end
+		elseif ico and ico:IsA("ImageLabel") then
+			Tween(ico, {ImageColor3 = color}, 0.18)
+		elseif ico then
+			Tween(ico, {TextColor3 = color}, 0.18)
+		end
+	end
+
+	local function TopBtn(name, xPos)
 		local b = Create("TextButton", {
 			Parent = TopBar,
 			AnchorPoint = Vector2.new(1, 0.5),
@@ -277,26 +351,33 @@ function FrutyLib:MakeWindow(Config)
 			Text = "",
 			AutoButtonColor = false,
 		}, {Corner(7)})
-		local ico = MakeLabel(symbol, 15, T.Muted, true, {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.new(0.5, 0, 0.5, 0),
-			Size = UDim2.new(1, 0, 1, 0),
-			TextXAlignment = Enum.TextXAlignment.Center,
-		})
+		local ico = MakeIcon(name, 15, T.Muted)
+		ico.AnchorPoint = Vector2.new(0.5, 0.5)
+		ico.Position = UDim2.new(0.5, 0, 0.5, 0)
 		ico.Parent = b
+		local alt
+		if name == "minus" then
+			alt = MakeIcon("plus", 15, T.Muted)
+			alt.AnchorPoint = Vector2.new(0.5, 0.5)
+			alt.Position = UDim2.new(0.5, 0, 0.5, 0)
+			alt.Visible = false
+			alt.Parent = b
+		end
 		b.MouseEnter:Connect(function()
 			Tween(b, {BackgroundColor3 = T.Hover})
-			Tween(ico, {TextColor3 = T.White})
+			TweenIco(ico, T.White)
+			if alt then TweenIco(alt, T.White) end
 		end)
 		b.MouseLeave:Connect(function()
 			Tween(b, {BackgroundColor3 = T.Card})
-			Tween(ico, {TextColor3 = T.Muted})
+			TweenIco(ico, T.Muted)
+			if alt then TweenIco(alt, T.Muted) end
 		end)
-		return b, ico
+		return b, ico, alt
 	end
 
 	local CloseBtn, CloseIco = TopBtn("x", -12)
-	local MinBtn, MinIco = TopBtn("minus", -48)
+	local MinBtn, MinIco, MinAlt = TopBtn("minus", -48)
 
 	local DragPoint = Create("TextButton", {
 		Parent = TopBar,
@@ -325,7 +406,6 @@ function FrutyLib:MakeWindow(Config)
 	local TabTitle = MakeLabel("", 16, T.White, true, {Position = UDim2.new(0, 14, 0, 0), Size = UDim2.new(0, 200, 0, 44)})
 	TabTitle.Parent = Content
 
-	--// search
 	local SearchFrame = Create("Frame", {
 		Parent = Content,
 		AnchorPoint = Vector2.new(1, 0.5),
@@ -378,7 +458,6 @@ function FrutyLib:MakeWindow(Config)
 		ApplySearch(SearchBox.Text)
 	end))
 
-	--// drag
 	do
 		local dragging, dragInput, dragStart, startPos = false, nil, nil, nil
 		DragPoint.InputBegan:Connect(function(Input)
@@ -402,7 +481,6 @@ function FrutyLib:MakeWindow(Config)
 		end))
 	end
 
-	--// keybinds
 	Track(UserInputService.InputBegan:Connect(function(Input, gpe)
 		if gpe then return end
 		if Input.KeyCode == Enum.KeyCode.RightShift or Input.KeyCode == Enum.KeyCode.Insert then
@@ -413,15 +491,15 @@ function FrutyLib:MakeWindow(Config)
 	local Minimized = false
 	MinBtn.MouseButton1Click:Connect(function()
 		Minimized = not Minimized
+		MinIco.Visible = not Minimized
+		MinAlt.Visible = Minimized
 		if Minimized then
-			MinIco.Text = "+"
 			Sidebar.Visible = false
 			Content.Visible = false
 			Tween(MainWindow, {Size = UDim2.new(0, 260, 0, 44)}, 0.3)
 		else
 			Sidebar.Visible = true
 			Content.Visible = true
-			MinIco.Text = "−"
 			Tween(MainWindow, {Size = FullSize}, 0.3)
 		end
 	end)
@@ -435,7 +513,6 @@ function FrutyLib:MakeWindow(Config)
 		})
 	end)
 
-	--// tabs
 	local Tabs = {}
 	local FirstTab = true
 
@@ -457,13 +534,13 @@ function FrutyLib:MakeWindow(Config)
 		for _, tb in ipairs(Tabs) do
 			tb.Bar.Visible = false
 			Tween(tb.Button, {BackgroundColor3 = T.Rail}, 0.18)
-			Tween(tb.Ico, {ImageColor3 = T.Muted, TextColor3 = T.Muted}, 0.18)
+			TweenIco(tb.Ico, T.Muted)
 			Tween(tb.Title, {TextColor3 = T.Muted}, 0.18)
 			tb.Container.Visible = false
 		end
 		Tab.Bar.Visible = true
 		Tween(Tab.Button, {BackgroundColor3 = T.Hover}, 0.18)
-		Tween(Tab.Ico, {ImageColor3 = T.White, TextColor3 = T.White}, 0.18)
+		TweenIco(Tab.Ico, T.Accent2)
 		Tween(Tab.Title, {TextColor3 = T.White}, 0.18)
 		Tab.Container.Visible = true
 		TabTitle.Text = Tab.Name
@@ -471,7 +548,6 @@ function FrutyLib:MakeWindow(Config)
 		ApplySearch(SearchBox.Text)
 	end
 
-	--// player card
 	local PlayerCard = Create("Frame", {
 		Parent = Sidebar,
 		AnchorPoint = Vector2.new(0, 1),
@@ -595,7 +671,6 @@ function FrutyLib:MakeWindow(Config)
 			FrutyLib:SaveConfig()
 		end
 
-		--// TOGGLE
 		function ElementFunction:AddToggle(C)
 			C = C or {}
 			local Name = C.Name or "Toggle"
@@ -641,7 +716,6 @@ function FrutyLib:MakeWindow(Config)
 			return Toggle
 		end
 
-		--// SLIDER
 		function ElementFunction:AddSlider(C)
 			C = C or {}
 			local Name = C.Name or "Slider"
@@ -723,7 +797,6 @@ function FrutyLib:MakeWindow(Config)
 			return Slider
 		end
 
-		--// BUTTON
 		function ElementFunction:AddButton(C)
 			C = C or {}
 			local Name = C.Name or "Button"
@@ -746,7 +819,6 @@ function FrutyLib:MakeWindow(Config)
 			return {Set = function(Text) row:FindFirstChildOfClass("TextLabel").Text = Text end}
 		end
 
-		--// DROPDOWN
 		function ElementFunction:AddDropdown(C)
 			C = C or {}
 			local Name = C.Name or "Dropdown"
@@ -837,7 +909,6 @@ function FrutyLib:MakeWindow(Config)
 			end
 
 			row.MouseButton1Click:Connect(function()
-				if not row or not row.AbsolutePosition then return end
 				Dropdown.Open = not Dropdown.Open
 				UpdateSize()
 				Tween(ico, {Rotation = Dropdown.Open and 180 or 0}, 0.2)
@@ -850,7 +921,6 @@ function FrutyLib:MakeWindow(Config)
 			return Dropdown
 		end
 
-		--// BIND
 		local BlacklistedKeys = {Enum.KeyCode.Unknown, Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D, Enum.KeyCode.Up, Enum.KeyCode.Left, Enum.KeyCode.Down, Enum.KeyCode.Right, Enum.KeyCode.Slash, Enum.KeyCode.Tab, Enum.KeyCode.Backspace, Enum.KeyCode.Escape}
 
 		local function IsBlacklisted(key)
@@ -931,7 +1001,6 @@ function FrutyLib:MakeWindow(Config)
 			return Bind
 		end
 
-		--// TEXTBOX
 		function ElementFunction:AddTextbox(C)
 			C = C or {}
 			local Name = C.Name or "Textbox"
@@ -989,7 +1058,6 @@ function FrutyLib:MakeWindow(Config)
 			return Textbox
 		end
 
-		--// LABEL
 		function ElementFunction:AddLabel(Text)
 			local row = Create("TextLabel", {
 				Parent = container,
@@ -1005,7 +1073,6 @@ function FrutyLib:MakeWindow(Config)
 			return {Set = function(v) row.Text = v end}
 		end
 
-		--// PARAGRAPH
 		function ElementFunction:AddParagraph(Text, Content)
 			Text = Text or "Text"
 			Content = Content or "Content"
@@ -1035,7 +1102,6 @@ function FrutyLib:MakeWindow(Config)
 			return {Set = function(v) body.Text = v end}
 		end
 
-		--// COLOR PICKER
 		function ElementFunction:AddColorPicker(C)
 			C = C or {}
 			local Name = C.Name or "Color"
@@ -1127,12 +1193,11 @@ function FrutyLib:MakeWindow(Config)
 			return CP
 		end
 
-		ElementFunction:AddKeybind = ElementFunction:AddBind
+		ElementFunction.AddKeybind = ElementFunction.AddBind
 
 		return ElementFunction
 	end
 
-	--// open animation
 	MainWindow.Visible = true
 	Tween(MainWindow, {Size = FullSize}, 0.35)
 
